@@ -12,8 +12,8 @@ from imdb.items import DirectorItem
 class ImdbPipeline:
     def __init__(self):
         self.connect = pymysql.connect( host='localhost',
-                                        user='imdbspider',
-                                        passwd='imdb%spider&&Q1W2E3',
+                                        user='user',
+                                        passwd='password',
                                         db='movies')
         self.cursor = self.connect.cursor()
         self.type_id_db = {3:'actor', 1:'movie', 2:'director'}
