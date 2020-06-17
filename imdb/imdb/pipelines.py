@@ -38,9 +38,7 @@ class ImdbPipeline:
         actor_update_sql = 'update actor set actor_name=%s,actor_score=%s,movie_num=%s, actor_total_score=%s where id=%s'
         if type_id == 2:
             update_sql = director_update_sql
-            result = self.cursor.execute(update_sql, [item['director_name'],
-                item['director_score'], item['movie_num'],
-                item['movie_score'],item['id']])
+            result = self.cursor.execute(update_sql, [item['director_name'],item['director_score'], item['movie_num'], item['movie_score'],item['id']])
         else:
             update_sql = actor_update_sql
             result = self.cursor.execute(update_sql, [item['actor_name'],
@@ -53,9 +51,10 @@ class ImdbPipeline:
         """
             获取actor_name为空的actor_id
         """
-        actor_search_sql = 'select actor_1_id from movie union select actor_2_id from movie union select actor_3_id from movie'
-        director_search_sql = 'select director_id from movie'
-        if type_id == 2:
+        actor_search_sql = 'select id from actor where movie_num=0 or movie_num is null'
+        # director_search_sql = 'select id from director where movie_num=0'
+        director_search_sql = 'select id from director where movie_num is null'
+        if type_id == 3:
             search_url = actor_search_sql
         else:
             search_url = director_search_sql
@@ -76,7 +75,7 @@ class ImdbPipeline:
     def get_actor_item(self, item_id, type_id):
         actor_search_sql = 'select * from actor where id=%s limit 1'
         director_search_sql = 'select * from director where id=%s limit 1'
-        if type_id == 2:
+        if type_id == 3:
             search_sql = actor_search_sql 
         else:
             search_sql = director_search_sql
@@ -86,62 +85,57 @@ class ImdbPipeline:
             item = []
         else:
             item = items[0]
-        print('*'*30, item)
         return item
 
     def process_actor_score_item(self, item, spider):
         """
             更新actor或director数据
+            得到一个item，首先对spider类型判断
+            尝试在数据库中检索该item，若该item存在且不为空，
+            则说明已经存储过，需要对该item进行更新，将movie_num+1,
+            movie_score增加数据，若不存在则将item当前数据更新
         """
         if spider.name == 'actor_score':
             type_id = 3
             search_item = self.get_actor_item(item['id'], type_id)
-            print(search_item)
             if search_item ==[]:
-                eld_item = ActorItem()
-                eld_item['id'] = ''
-                eld_item['movie_num'] = 0
-                eld_item['movie_score'] = ''
+                eld_item = item
             else:
                 eld_item = ActorItem()
                 eld_item['id'] = search_item[0] 
-                eld_item['actor_name'] = search_item[1]
-                if not search_item[3] is None:
-                    eld_item['movie_score'] = search_item[3]+', '+item['movie_score']
-                    total_movie_score = self.get_total_movie_score(eld_item['movie_score'])
-                    eld_item['movie_num'] = search_item[-1]+1
-                    eld_item['actor_score'] = total_movie_score/eld_item['movie_num']
-                else:
+                if not search_item[-1]:
+                    eld_item['actor_name'] = item['actor_name']
                     eld_item['movie_score'] = item['movie_score']
                     total_movie_score = self.get_total_movie_score(eld_item['movie_score'])
-                    eld_item['movie_num'] = 1
-                    eld_item['actor_score'] = total_movie_score/eld_item['movie_num']
+                    eld_item['movie_num'] = item['movie_num']
+                else:
+                    eld_item['actor_name'] = search_item[1]
+                    eld_item['movie_score'] = search_item[-2]+', '+item['movie_score']
+                    total_movie_score = self.get_total_movie_score(eld_item['movie_score'])
+                    eld_item['movie_num'] = search_item[-1]+item['movie_num']
+                eld_item['actor_score'] = total_movie_score/eld_item['movie_num']
         
  
         else:
             type_id = 2
             search_item = self.get_actor_item(item['id'], type_id)
-            print(search_item)
             if search_item ==[]:
-                eld_item = DirectorItem()
-                eld_item['id'] = ''
-                eld_item['movie_num'] = 0
-                eld_item['movie_score'] = ''
+                eld_item = item
             else:
-                search_item
+                print(search_item)
                 eld_item = DirectorItem()
                 eld_item['id'] = search_item[0] 
-                eld_item['director_name'] = search_item[1]
-                if not search_item[3] is None:
-                    eld_item['movie_score'] = search_item[3]+', '+item['movie_score']
-                    total_movie_score = self.get_total_movie_score(eld_item['movie_score'])
-                    eld_item['movie_num'] = search_item[-1]+1
-                    eld_item['director_score'] = total_movie_score/eld_item['movie_num']
-                else:
+                if not search_item[-1]:
+                    eld_item['director_name'] = item['director_name']
                     eld_item['movie_score'] = item['movie_score']
                     total_movie_score = self.get_total_movie_score(eld_item['movie_score'])
-                    eld_item['movie_num'] = 1
-                    eld_item['director_score'] = total_movie_score/eld_item['movie_num']
+                    eld_item['movie_num'] = item['movie']
+                else:
+                    eld_item['director_name'] = search_item[1]
+                    eld_item['movie_score'] = search_item[-2]+','+item['movie_score']
+                    total_movie_score = self.get_total_movie_score(eld_item['movie_score'])
+                    eld_item['movie_num'] = search_item[-1]+item['movie']
+                eld_item['director_score'] = total_movie_score/eld_item['movie_num']
         
         self.update_actor_score(eld_item, type_id)
         
@@ -177,7 +171,6 @@ class ImdbPipeline:
  
     def get_total_movie_score(self, movie_score):
         total_score = 0.0
-        print('='*50, movie_score)
         if type(movie_score) == int:
             return movie_score
         for score in movie_score.split(','):

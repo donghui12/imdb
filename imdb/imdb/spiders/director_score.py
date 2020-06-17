@@ -29,15 +29,21 @@ class DirectorScoreSpider(scrapy.Spider):
     allowed_domains = ['imdb.com']
     base_url = 'https://www.imdb.com' 
     start_urls = prepare_movie_urls()
+    base_title = '/title/{}/'
     def parse(self, response):
         # ---------------------------------------------------------------------------------
         # 获取导演作品集
         try:
+            titles = re.findall(r'id="director-(.*?)"', response.text)
             productions = response.xpath('//div[@id="filmo-head-director"]/preceding-sibling::div[1]/div/b/a/@href').extract()
+            if not productions:
+                titles = re.findall(r'id="director-(.*?)"', response.text)
+                for title in titles:
+                    production = self.base_title.format(title)
+                    productions.append(production)
         except Exception as e:
             print('productions_set Error, ',e)
             productions = []
-
         # ---------------------------------------------------------------------------------
         # 获取演员名字
         try:
@@ -45,7 +51,7 @@ class DirectorScoreSpider(scrapy.Spider):
         except Exception as e:
             print('actior_name Error, ', e)
             actor_name = ''
-
+        print(actor_name)
         # ---------------------------------------------------------------------------------
         
         if len(productions) == 0:
@@ -79,7 +85,7 @@ class DirectorScoreSpider(scrapy.Spider):
             movie_num = 1
         except Exception as e:
             print('movie score Error, ', e)
-            movie_score = 0 
+            movie_score = '0' 
             movie_num = 0
         
         actor_item['movie_score'] = movie_score

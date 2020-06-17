@@ -29,14 +29,16 @@ class ActorScoreSpider(scrapy.Spider):
     allowed_domains = ['imdb.com']
     base_url = 'https://www.imdb.com' 
     start_urls = prepare_movie_urls()
+    base_title = '/title/{}/'
     def parse(self, response):
         # ---------------------------------------------------------------------------------
         # 获取演员作品集
         try:
-            productions = response.xpath('//div[@id="filmo-head-actor"]/preceding-sibling::div[1]/div/b/a/@href').extract()
-            
-            if len(productions) == 0:
-                productions = response.xpath('//div[@id="filmo-head-actress"]/preceding-sibling::div[1]/div/b/a/@href').extract()
+            productions = []
+            titles = re.findall(r'id="actor-(.*?)"', response.text)
+            for title in titles:
+                production = self.base_title.format(title)
+                productions.append(production)
         except Exception as e:
             print('productions_set Error, ',e)
             productions = []
@@ -82,12 +84,12 @@ class ActorScoreSpider(scrapy.Spider):
             movie_num = 1
         except Exception as e:
             print('movie score Error, ', e)
-            movie_score = 0
+            movie_score = '0'
             movie_num = 0
         
         actor_item['movie_score'] = str(movie_score)
         actor_item['movie_num'] = movie_num
-        actor_item['actor_score'] = 0
+        actor_item['actor_score'] = '0'
         yield actor_item
 
     def extract_actor_id_from_url(self, actor_url):
